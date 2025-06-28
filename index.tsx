@@ -1557,18 +1557,60 @@ class PromptDj extends LitElement {
       z-index: -1;
       background: #111;
     }
-    .user-prompt-banner {
+    .user-prompt-input-container {
       width: 100%;
       max-width: 800px;
       margin-bottom: 2vmin;
-      padding: 16px 24px;
+    }
+    .prompt-input-wrapper {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 16px 20px;
       background: rgba(42, 42, 42, 0.9);
       border-radius: 12px;
-      color: white;
-      font-size: 18px;
-      font-family: 'Google Sans', sans-serif;
-      text-align: center;
       border: 2px solid #5200ff;
+    }
+    .user-prompt-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid #666;
+      border-radius: 8px;
+      background-color: #333;
+      color: white;
+      font-size: 16px;
+      font-family: 'Google Sans', sans-serif;
+      transition: border-color 0.3s ease;
+    }
+    .user-prompt-input:focus {
+      outline: none;
+      border-color: #5200ff;
+      box-shadow: 0 0 0 2px rgba(82, 0, 255, 0.3);
+    }
+    .user-prompt-input::placeholder {
+      color: #888;
+    }
+    .generate-terms-button {
+      padding: 12px 24px;
+      background: linear-gradient(135deg, #5200ff 0%, #9900ff 100%);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-family: 'Google Sans', sans-serif;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      white-space: nowrap;
+    }
+    .generate-terms-button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(82, 0, 255, 0.4);
+    }
+    .generate-terms-button:disabled {
+      background: #666;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
     .prompts-area {
       flex: 1;
@@ -1637,6 +1679,10 @@ class PromptDj extends LitElement {
   // Popup and love message state
   @state() private showNamePopup = true;
   @state() private showLoveMessage = false;
+
+  // User prompt input state
+  @state() private userPrompt = '';
+  @state() private isGenerating = false;
 
   @query('play-pause-button') private playPauseButton!: PlayPauseButton;
   @query('toast-message') private toastMessage!: ToastMessage;
@@ -1948,6 +1994,100 @@ class PromptDj extends LitElement {
     }
   }
 
+  private handleUserPromptInput(e: Event) {
+    const input = e.target as HTMLInputElement;
+    this.userPrompt = input.value;
+  }
+
+  private handleUserPromptKeyPress(e: KeyboardEvent) {
+    if (e.key === 'Enter' && this.userPrompt.trim() && !this.isGenerating) {
+      this.handleGenerateTerms();
+    }
+  }
+
+  private async handleGenerateTerms() {
+    if (!this.userPrompt.trim() || this.isGenerating) return;
+
+    this.isGenerating = true;
+
+    try {
+      // For now, simulate AI term generation with a simple keyword extraction
+      // This is a placeholder - in the future this would call Gemini API
+      const generatedTerms = this.extractMusicTerms(this.userPrompt);
+
+      // Clear existing prompts first
+      this.prompts.clear();
+
+      // Add generated terms as new prompts
+      const usedColors: string[] = [];
+      generatedTerms.forEach((term, index) => {
+        const promptId = `prompt-${this.nextPromptId++}`;
+        const color = getUnusedRandomColor(usedColors);
+        usedColors.push(color);
+
+        this.prompts.set(promptId, {
+          promptId,
+          text: term,
+          weight: Math.random() * 1.5, // Random initial weight
+          color,
+        });
+      });
+
+      // Update the session and UI
+      await this.setSessionPrompts();
+      this.dispatchPromptsChange();
+      this.toastMessage.show(`Generated ${generatedTerms.length} music terms from your prompt!`);
+
+    } catch (error) {
+      console.error('Error generating terms:', error);
+      this.toastMessage.show('Failed to generate terms. Please try again.');
+    } finally {
+      this.isGenerating = false;
+    }
+  }
+
+  private extractMusicTerms(prompt: string): string[] {
+    // Simple term extraction - in a real implementation this would use Gemini API
+    const musicKeywords = [
+      'jazz', 'rock', 'pop', 'classical', 'electronic', 'funk', 'blues', 'country',
+      'upbeat', 'mellow', 'energetic', 'calm', 'intense', 'smooth', 'driving',
+      'piano', 'guitar', 'drums', 'bass', 'saxophone', 'violin', 'trumpet',
+      'ambient', 'rhythmic', 'melodic', 'harmonic', 'percussive', 'vocal',
+      'fast', 'slow', 'medium', 'tempo', 'beat', 'groove'
+    ];
+
+    const words = prompt.toLowerCase().split(/\s+/);
+    const extractedTerms: string[] = [];
+
+    // Find matching keywords
+    words.forEach(word => {
+      const cleanWord = word.replace(/[^a-z]/g, '');
+      if (musicKeywords.includes(cleanWord)) {
+        extractedTerms.push(cleanWord.charAt(0).toUpperCase() + cleanWord.slice(1));
+      }
+    });
+
+    // If no keywords found, generate some based on common patterns
+    if (extractedTerms.length === 0) {
+      if (prompt.includes('upbeat') || prompt.includes('energetic') || prompt.includes('fast')) {
+        extractedTerms.push('Energetic', 'Fast Tempo', 'Driving Beat');
+      } else if (prompt.includes('calm') || prompt.includes('mellow') || prompt.includes('slow')) {
+        extractedTerms.push('Mellow', 'Ambient', 'Smooth');
+      } else {
+        // Default terms
+        extractedTerms.push('Melodic', 'Rhythmic', 'Harmonic');
+      }
+    }
+
+    // Add some variation based on prompt content
+    if (prompt.includes('jazz')) extractedTerms.push('Swing', 'Improvisation');
+    if (prompt.includes('rock')) extractedTerms.push('Power Chords', 'Driving');
+    if (prompt.includes('electronic')) extractedTerms.push('Synthesized', 'Digital');
+
+    // Limit to 6 terms max and remove duplicates
+    return [...new Set(extractedTerms)].slice(0, 6);
+  }
+
   override render() {
     const bg = styleMap({
       backgroundImage: this.makeBackground(),
@@ -1957,8 +2097,24 @@ class PromptDj extends LitElement {
       ${this.showLoveMessage ? html`<love-message></love-message>` : ''}
       <div id="background" style=${bg}></div>
 
-      <div class="user-prompt-banner">
-        🎵 Enter your music prompt above to generate intelligent terms with AI assistance
+      <div class="user-prompt-input-container">
+        <div class="prompt-input-wrapper">
+          <input
+            type="text"
+            class="user-prompt-input"
+            placeholder="Describe your desired music style (e.g., 'upbeat jazz with saxophone')"
+            @keypress=${this.handleUserPromptKeyPress}
+            @input=${this.handleUserPromptInput}
+            .value=${this.userPrompt}
+          />
+          <button
+            class="generate-terms-button"
+            @click=${this.handleGenerateTerms}
+            ?disabled=${!this.userPrompt.trim() || this.isGenerating}
+          >
+            ${this.isGenerating ? 'Generating...' : 'Generate Terms'}
+          </button>
+        </div>
       </div>
 
       <div class="prompts-area">

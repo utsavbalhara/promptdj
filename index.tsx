@@ -1543,7 +1543,7 @@ class PromptDj extends LitElement {
       width: 100%;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      justify-content: space-between;
       align-items: center;
       box-sizing: border-box;
       padding: 2vmin;
@@ -1557,57 +1557,48 @@ class PromptDj extends LitElement {
       z-index: -1;
       background: #111;
     }
-    .prompts-area {
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      flex: 4;
+    .user-prompt-banner {
       width: 100%;
-      margin-top: 2vmin;
-      gap: 2vmin;
+      max-width: 800px;
+      margin-bottom: 2vmin;
+      padding: 16px 24px;
+      background: rgba(42, 42, 42, 0.9);
+      border-radius: 12px;
+      color: white;
+      font-size: 18px;
+      font-family: 'Google Sans', sans-serif;
+      text-align: center;
+      border: 2px solid #5200ff;
     }
-    #prompts-container {
+    .prompts-area {
+      flex: 1;
+      width: 100%;
+      max-width: 800px;
       display: flex;
-      flex-direction: row;
-      align-items: flex-end;
-      flex-shrink: 1;
-      height: 100%;
-      gap: 2vmin;
-      margin-left: 10vmin;
-      padding: 1vmin;
-      overflow-x: auto;
+      flex-direction: column;
+      gap: 16px;
+      padding: 20px;
+      overflow-y: auto;
       scrollbar-width: thin;
       scrollbar-color: #666 #1a1a1a;
     }
-    #prompts-container::-webkit-scrollbar {
-      height: 8px;
+    .prompts-area::-webkit-scrollbar {
+      width: 8px;
     }
-    #prompts-container::-webkit-scrollbar-track {
+    .prompts-area::-webkit-scrollbar-track {
       background: #111;
       border-radius: 4px;
     }
-    #prompts-container::-webkit-scrollbar-thumb {
+    .prompts-area::-webkit-scrollbar-thumb {
       background-color: #666;
       border-radius: 4px;
     }
-    #prompts-container::-webkit-scrollbar-thumb:hover {
+    .prompts-area::-webkit-scrollbar-thumb:hover {
       background-color: #777;
     }
-    /* Add pseudo-elements for centering while keeping elements visible when scrolling */
-    #prompts-container::before,
-    #prompts-container::after {
-      content: '';
-      flex: 1;
-      min-width: 0.5vmin;
-    }
-    .add-prompt-button-container {
-      display: flex;
-      align-items: flex-end;
-      height: 100%;
-      flex-shrink: 0;
-    }
     #settings-container {
-      flex: 1;
+      width: 100%;
+      max-width: 800px;
       margin: 2vmin 0 1vmin 0;
     }
     .playback-container {
@@ -1615,19 +1606,12 @@ class PromptDj extends LitElement {
       justify-content: center;
       align-items: center;
       flex-shrink: 0;
+      gap: 2vmin;
     }
     play-pause-button,
-    add-prompt-button,
     reset-button {
       width: 12vmin;
       flex-shrink: 0;
-    }
-    prompt-controller {
-      height: 100%;
-      max-height: 80vmin;
-      min-width: 14vmin;
-      max-width: 16vmin;
-      flex: 1;
     }
   `;
 
@@ -1972,21 +1956,20 @@ class PromptDj extends LitElement {
       ${this.showNamePopup ? html`<name-popup @name-submitted=${this.handleNameSubmitted}></name-popup>` : ''}
       ${this.showLoveMessage ? html`<love-message></love-message>` : ''}
       <div id="background" style=${bg}></div>
-      <div class="prompts-area">
-        <div
-          id="prompts-container"
-          @prompt-removed=${this.handlePromptRemoved}
-          @wheel=${this.handlePromptsContainerWheel}>
-          ${this.renderPrompts()}
-        </div>
-        <div class="add-prompt-button-container">
-          <add-prompt-button @click=${this.handleAddPrompt}></add-prompt-button>
-        </div>
+
+      <div class="user-prompt-banner">
+        🎵 Enter your music prompt above to generate intelligent terms with AI assistance
       </div>
+
+      <div class="prompts-area">
+        ${this.renderHorizontalPrompts()}
+      </div>
+
       <div id="settings-container">
         <settings-controller
           @settings-changed=${this.updateSettings}></settings-controller>
       </div>
+
       <div class="playback-container">
         <play-pause-button
           @click=${this.handlePlayPause}
@@ -1996,17 +1979,32 @@ class PromptDj extends LitElement {
       <toast-message></toast-message>`;
   }
 
-  private renderPrompts() {
+  private renderHorizontalPrompts() {
     return [...this.prompts.values()].map((prompt) => {
-      return html`<prompt-controller
-        .promptId=${prompt.promptId}
-        filtered=${this.filteredPrompts.has(prompt.text)}
+      return html`<horizontal-prompt-card
         .text=${prompt.text}
         .weight=${prompt.weight}
         .color=${prompt.color}
-        @prompt-changed=${this.handlePromptChanged}>
-      </prompt-controller>`;
+        @weight-changed=${this.handleHorizontalWeightChanged}>
+      </horizontal-prompt-card>`;
     });
+  }
+
+  private handleHorizontalWeightChanged(e: CustomEvent) {
+    const { text, weight } = e.detail;
+    // Find the prompt by text and update its weight
+    for (const [promptId, prompt] of this.prompts.entries()) {
+      if (prompt.text === text) {
+        prompt.weight = weight;
+        const newPrompts = new Map(this.prompts);
+        newPrompts.set(promptId, prompt);
+        this.prompts = newPrompts;
+        this.setSessionPrompts();
+        this.requestUpdate();
+        this.dispatchPromptsChange();
+        break;
+      }
+    }
   }
 }
 
@@ -2085,5 +2083,6 @@ declare global {
     'toast-message': ToastMessage;
     'name-popup': NamePopup;
     'love-message': LoveMessage;
+    'horizontal-prompt-card': HorizontalPromptCard;
   }
 }

@@ -90,44 +90,46 @@ function getUnusedRandomColor(usedColors: string[]): string {
 class WeightSlider extends LitElement {
   static override styles = css`
     :host {
-      cursor: ns-resize;
+      cursor: ew-resize;
       position: relative;
-      height: 100%;
+      width: 100%;
       display: flex;
       justify-content: center;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
       padding: 5px;
     }
     .scroll-container {
-      width: 100%;
+      height: 100%;
       flex-grow: 1;
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       justify-content: center;
       align-items: center;
     }
     .value-display {
       font-size: 1.3vmin;
       color: #ccc;
-      margin: 0.5vmin 0;
+      margin: 0 0.5vmin;
       user-select: none;
       text-align: center;
     }
     .slider-container {
       position: relative;
-      width: 10px;
-      height: 100%;
+      height: 6px;
+      width: 100%;
       background-color: #0009;
-      border-radius: 4px;
+      border-radius: 3px;
     }
     #thumb {
       position: absolute;
-      bottom: 0;
       left: 0;
-      width: 100%;
-      border-radius: 4px;
-      box-shadow: 0 0 3px rgba(0, 0, 0, 0.7);
+      top: 0;
+      height: 100%;
+      width: 16px;
+      background: white;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     }
   `;
 
@@ -151,7 +153,7 @@ class WeightSlider extends LitElement {
   private handlePointerDown(e: PointerEvent) {
     e.preventDefault();
     this.containerBounds = this.scrollContainer.getBoundingClientRect();
-    this.dragStartPos = e.clientY;
+    this.dragStartPos = e.clientX;
     this.dragStartValue = this.value;
     document.body.classList.add('dragging');
     window.addEventListener('pointermove', this.handlePointerMove);
@@ -159,16 +161,16 @@ class WeightSlider extends LitElement {
       passive: false,
     });
     window.addEventListener('pointerup', this.handlePointerUp, {once: true});
-    this.updateValueFromPosition(e.clientY);
+    this.updateValueFromPosition(e.clientX);
   }
 
   private handlePointerMove(e: PointerEvent) {
-    this.updateValueFromPosition(e.clientY);
+    this.updateValueFromPosition(e.clientX);
   }
 
   private handleTouchMove(e: TouchEvent) {
     e.preventDefault();
-    this.updateValueFromPosition(e.touches[0].clientY);
+    this.updateValueFromPosition(e.touches[0].clientX);
   }
 
   private handlePointerUp(e: PointerEvent) {
@@ -185,15 +187,15 @@ class WeightSlider extends LitElement {
     this.dispatchInputEvent();
   }
 
-  private updateValueFromPosition(clientY: number) {
+  private updateValueFromPosition(clientX: number) {
     if (!this.containerBounds) return;
 
-    const trackHeight = this.containerBounds.height;
-    // Calculate position relative to the top of the track
-    const relativeY = clientY - this.containerBounds.top;
-    // Invert and normalize (0 at bottom, 1 at top)
+    const trackWidth = this.containerBounds.width;
+    // Calculate position relative to the left of the track
+    const relativeX = clientX - this.containerBounds.left;
+    // Normalize (0 at left, 1 at right)
     const normalizedValue =
-      1 - Math.max(0, Math.min(trackHeight, relativeY)) / trackHeight;
+      Math.max(0, Math.min(trackWidth, relativeX)) / trackWidth;
     // Scale to 0-2 range
     this.value = normalizedValue * 2;
 
@@ -205,10 +207,10 @@ class WeightSlider extends LitElement {
   }
 
   override render() {
-    const thumbHeightPercent = (this.value / 2) * 100;
+    const thumbLeftPercent = (this.value / 2) * 100;
     const thumbStyle = styleMap({
-      height: `${thumbHeightPercent}%`,
-      backgroundColor: this.color,
+      left: `calc(${thumbLeftPercent}% - 8px)`,
+      top: '-5px',
       // Hide thumb if value is 0 or very close to prevent visual glitch
       display: this.value > 0.01 ? 'block' : 'none',
     });
@@ -692,6 +694,133 @@ class ToastMessage extends LitElement {
 
   hide() {
     this.showing = false;
+  }
+}
+
+/** A horizontal prompt card for displaying terms with sliders */
+@customElement('horizontal-prompt-card')
+class HorizontalPromptCard extends LitElement {
+  static override styles = css`
+    :host {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 12px 20px;
+      background: rgba(42, 42, 42, 0.8);
+      border-radius: 8px;
+      box-sizing: border-box;
+      min-height: 60px;
+    }
+    .prompt-label {
+      color: white;
+      font-weight: 500;
+      min-width: 120px;
+      font-size: 16px;
+      white-space: nowrap;
+      font-family: 'Google Sans', sans-serif;
+    }
+    .slider-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .horizontal-slider {
+      flex: 1;
+      height: 6px;
+      background: #333;
+      border-radius: 3px;
+      position: relative;
+      cursor: pointer;
+    }
+    .slider-track-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.1s ease;
+    }
+    .slider-knob {
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      position: absolute;
+      top: -5px;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      transition: left 0.1s ease;
+    }
+    .value-display {
+      color: #ccc;
+      font-size: 14px;
+      min-width: 40px;
+      text-align: right;
+      font-family: 'Google Sans', sans-serif;
+    }
+  `;
+
+  @property({type: String}) text = '';
+  @property({type: Number}) weight = 0; // Range 0-2
+  @property({type: String}) color = '#5200ff';
+
+  private isDragging = false;
+  private sliderBounds: DOMRect | null = null;
+
+  private handleSliderMouseDown(e: MouseEvent) {
+    e.preventDefault();
+    const slider = e.currentTarget as HTMLElement;
+    this.sliderBounds = slider.getBoundingClientRect();
+    this.isDragging = true;
+    this.updateValueFromPosition(e.clientX);
+
+    document.addEventListener('mousemove', this.handleMouseMove);
+    document.addEventListener('mouseup', this.handleMouseUp, { once: true });
+  }
+
+  private handleMouseMove = (e: MouseEvent) => {
+    if (this.isDragging) {
+      this.updateValueFromPosition(e.clientX);
+    }
+  };
+
+  private handleMouseUp = () => {
+    this.isDragging = false;
+    this.sliderBounds = null;
+    document.removeEventListener('mousemove', this.handleMouseMove);
+  };
+
+  private updateValueFromPosition(clientX: number) {
+    if (!this.sliderBounds) return;
+
+    const relativeX = clientX - this.sliderBounds.left;
+    const normalizedValue = Math.max(0, Math.min(1, relativeX / this.sliderBounds.width));
+    this.weight = normalizedValue * 2; // Scale to 0-2 range
+
+    this.dispatchEvent(new CustomEvent('weight-changed', {
+      detail: { text: this.text, weight: this.weight },
+      bubbles: true
+    }));
+  }
+
+  override render() {
+    const fillWidth = (this.weight / 2) * 100;
+    const knobLeft = (this.weight / 2) * 100;
+
+    return html`
+      <div class="prompt-label">${this.text}</div>
+      <div class="slider-container">
+        <div class="horizontal-slider" @mousedown=${this.handleSliderMouseDown}>
+          <div
+            class="slider-track-fill"
+            style="width: ${fillWidth}%; background-color: ${this.color};">
+          </div>
+          <div
+            class="slider-knob"
+            style="left: calc(${knobLeft}% - 8px);">
+          </div>
+        </div>
+        <div class="value-display">${this.weight.toFixed(1)}</div>
+      </div>
+    `;
   }
 }
 

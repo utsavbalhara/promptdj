@@ -454,6 +454,189 @@ export class AddPromptButton extends IconButton {
   }
 }
 
+// Name Popup component
+// -----------------------------------------------------------------------------
+
+@customElement('name-popup')
+class NamePopup extends LitElement {
+  static override styles = css`
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      backdrop-filter: blur(5px);
+    }
+    .popup {
+      background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+      border: 2px solid #5200ff;
+      border-radius: 15px;
+      padding: 3rem;
+      box-shadow: 0 20px 60px rgba(82, 0, 255, 0.3);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      animation: popupEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes popupEnter {
+      from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+    h2 {
+      color: #fff;
+      margin: 0 0 1.5rem 0;
+      font-family: 'Google Sans', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 400;
+    }
+    input {
+      width: 100%;
+      padding: 1rem;
+      border: 2px solid #666;
+      border-radius: 8px;
+      background-color: #333;
+      color: #fff;
+      font-size: 1.2rem;
+      font-family: 'Google Sans', sans-serif;
+      box-sizing: border-box;
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s ease;
+    }
+    input:focus {
+      outline: none;
+      border-color: #5200ff;
+      box-shadow: 0 0 0 3px rgba(82, 0, 255, 0.3);
+    }
+    button {
+      background: linear-gradient(135deg, #5200ff 0%, #9900ff 100%);
+      color: white;
+      border: none;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      font-family: 'Google Sans', sans-serif;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      min-width: 120px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(82, 0, 255, 0.4);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+  `;
+
+  @property({type: String}) name = '';
+
+  private handleSubmit(e: Event) {
+    e.preventDefault();
+    const input = this.shadowRoot?.querySelector('input') as HTMLInputElement;
+    const name = input?.value.trim();
+    if (name) {
+      this.dispatchEvent(new CustomEvent('name-submitted', {
+        detail: name,
+        bubbles: true,
+        composed: true
+      }));
+    }
+  }
+
+  private handleKeyPress(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      this.handleSubmit(e);
+    }
+  }
+
+  override render() {
+    return html`
+      <div class="overlay">
+        <div class="popup">
+          <h2>Welcome to PromptDJ!</h2>
+          <form @submit=${this.handleSubmit}>
+            <input
+              type="text"
+              placeholder="Enter your name..."
+              @keypress=${this.handleKeyPress}
+              autofocus
+            />
+            <button type="submit">Continue</button>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// Love Message component
+// -----------------------------------------------------------------------------
+
+@customElement('love-message')
+class LoveMessage extends LitElement {
+  static override styles = css`
+    .love-banner {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: linear-gradient(135deg, #ff25f6 0%, #5200ff 50%, #9900ff 100%);
+      color: white;
+      text-align: center;
+      padding: 1rem;
+      font-family: 'Google Sans', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 500;
+      z-index: 999;
+      box-shadow: 0 4px 20px rgba(255, 37, 246, 0.3);
+      animation: loveEnter 1s ease-out;
+    }
+    @keyframes loveEnter {
+      from {
+        opacity: 0;
+        transform: translateY(-100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .heart {
+      display: inline-block;
+      animation: heartbeat 1.5s ease-in-out infinite;
+      margin: 0 0.5rem;
+    }
+    @keyframes heartbeat {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.2);
+      }
+    }
+  `;
+
+  override render() {
+    return html`
+      <div class="love-banner">
+        Utsav loves Shuaani<span class="heart">❤️</span>
+      </div>
+    `;
+  }
+}
+
 // Toast Message component
 // -----------------------------------------------------------------------------
 
@@ -933,11 +1116,11 @@ class SettingsController extends LitElement {
 
   @state() autoDensity = true;
 
-  @state() lastDefinedDensity: number;
+  @state() lastDefinedDensity: number = 0.5;
 
   @state() autoBrightness = true;
 
-  @state() lastDefinedBrightness: number;
+  @state() lastDefinedBrightness: number = 0.5;
 
   public resetToDefaults() {
     this.config = this.defaultConfig;
@@ -1325,9 +1508,9 @@ class PromptDj extends LitElement {
   })
   private prompts: Map<string, Prompt>;
   private nextPromptId: number; // Monotonically increasing ID for new prompts
-  private session: LiveMusicSession;
+  private session!: LiveMusicSession;
   private readonly sampleRate = 48000;
-  private audioContext = new (window.AudioContext || window.webkitAudioContext)(
+  private audioContext = new (window.AudioContext || (window as any).webkitAudioContext)(
     {sampleRate: this.sampleRate},
   );
   private outputNode: GainNode = this.audioContext.createGain();
@@ -1337,6 +1520,10 @@ class PromptDj extends LitElement {
   @property({type: Object})
   private filteredPrompts = new Set<string>();
   private connectionError = true;
+
+  // Popup and love message state
+  @state() private showNamePopup = true;
+  @state() private showLoveMessage = false;
 
   @query('play-pause-button') private playPauseButton!: PlayPauseButton;
   @query('toast-message') private toastMessage!: ToastMessage;
@@ -1636,11 +1823,26 @@ class PromptDj extends LitElement {
     setTimeout(this.loadAudio.bind(this), 100);
   }
 
+  private handleNameSubmitted(e: CustomEvent<string>) {
+    const name = e.detail;
+    const specialNames = ['Suhani', 'suhani', 'smurf', 'Smurf'];
+
+    if (specialNames.includes(name)) {
+      this.showNamePopup = false;
+      this.showLoveMessage = true;
+    } else {
+      this.showNamePopup = false;
+    }
+  }
+
   override render() {
     const bg = styleMap({
       backgroundImage: this.makeBackground(),
     });
-    return html`<div id="background" style=${bg}></div>
+    return html`
+      ${this.showNamePopup ? html`<name-popup @name-submitted=${this.handleNameSubmitted}></name-popup>` : ''}
+      ${this.showLoveMessage ? html`<love-message></love-message>` : ''}
+      <div id="background" style=${bg}></div>
       <div class="prompts-area">
         <div
           id="prompts-container"
@@ -1752,5 +1954,7 @@ declare global {
     'reset-button': ResetButton;
     'weight-slider': WeightSlider;
     'toast-message': ToastMessage;
+    'name-popup': NamePopup;
+    'love-message': LoveMessage;
   }
 }
